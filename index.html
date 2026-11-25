@@ -26,7 +26,6 @@
     .green { color: #0ecb81; }
     .red { color: #f6465d; }
     .yellow { color: #f0b90b; }
-    .info { background: #181a20; border-left: 4px solid #f6465d; padding: 12px; margin-top: 15px; font-size: 13px; line-height: 1.5; border-radius: 4px; }
   </style>
 </head>
 <body>
@@ -85,8 +84,6 @@
         <tbody id="tbody"></tbody>
       </table>
     </div>
-
-    <div class="info" id="note"></div>
   </div>
 
   <script>
@@ -110,7 +107,7 @@
       var step = (roiDrop / 100) / lev;
       var tp100 = 1.0 / lev;
       var liq = 0.8 / lev;
-      var totM = 0, totPos = 0, totCoins = 0, avg = entry, finalLiq = 0;
+      var totM = 0, totPos = 0, totCoins = 0, avg = entry;
       var rows = "";
 
       for (var i = 1; i <= orders; i++) {
@@ -126,7 +123,6 @@
 
         var p100 = (side === "LONG") ? avg * (1 + tp100) : avg * (1 - tp100);
         var eliq = (side === "LONG") ? avg * (1 - liq) : avg * (1 + liq);
-        finalLiq = eliq;
 
         rows += "<tr>" +
           "<td><b>#" + i + "</b></td>" +
@@ -148,15 +144,12 @@
         "<div class='card'><small>Max Loss at Hard SL</small><b class='red'>-$" + lossAmt.toFixed(2) + "</b></div>" +
         "<div class='card'><small>Safe Capital Saved</small><b class='green'>$" + (totM - lossAmt).toFixed(2) + "</b></div>";
 
-      var noteHTML = "<b>Hard Stop Loss Details:</b> Order #" + orders + " ke baad aapka Final Avg Entry <b>$" + f(avg) + "</b> hai aur Liquidation <b>$" + f(finalLiq) + "</b> par hai. Liquidation se bachne ke liye <b>$" + f(hardSL) + "</b> par Hard SL lagayein, jisme max <b>$" + lossAmt.toFixed(2) + "</b> ka loss hoga aur baaki 50% fund bach jayega.";
-
       document.getElementById("tbody").innerHTML = rows;
       document.getElementById("cards").innerHTML = cardsHTML;
-      document.getElementById("note").innerHTML = noteHTML;
 
       var savedData = {
         side: side, entry: entry, lev: lev, m1: m1, mult: mult,
-        roiDrop: roiDrop, orders: orders, rows: rows, cardsHTML: cardsHTML, noteHTML: noteHTML
+        roiDrop: roiDrop, orders: orders, rows: rows, cardsHTML: cardsHTML
       };
       localStorage.setItem("dca_engine_data", JSON.stringify(savedData));
     }
@@ -174,7 +167,6 @@
         document.getElementById("orders").value = data.orders;
         document.getElementById("tbody").innerHTML = data.rows;
         document.getElementById("cards").innerHTML = data.cardsHTML;
-        document.getElementById("note").innerHTML = data.noteHTML;
       } else {
         runCalc();
       }

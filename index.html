@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DCA Engine</title>
+  <style>
+    body { background: #0b0e11; color: #eaecef; font-family: Arial, sans-serif; padding: 15px; margin: 0; }
+    .box { max-width: 900px; margin: auto; }
+    h2 { color: #f0b90b; margin-bottom: 12px; }
+    .inputs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; background: #181a20; padding: 15px; border-radius: 8px; }
+    .full-width { grid-column: span 2; }
+    label { font-size: 12px; color: #848e9c; display: block; margin-bottom: 4px; }
+    input, select { width: 100%; padding: 8px; background: #2b3139; color: #fff; border: 1px solid #474d57; border-radius: 5px; box-sizing: border-box; font-size: 14px; }
+    button { grid-column: span 2; padding: 12px; background: #f0b90b; color: #000; font-weight: bold; border: none; border-radius: 5px; font-size: 15px; cursor: pointer; margin-top: 5px; }
+    button:hover { background: #d9a507; }
+    .cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 15px 0; }
+    .card { background: #181a20; padding: 12px; border-radius: 8px; border: 1px solid #2b3139; }
+    .card small { color: #848e9c; display: block; font-size: 11px; }
+    .card b { font-size: 16px; }
+    .table-box { overflow-x: auto; background: #181a20; border-radius: 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: right; }
+    th, td { padding: 10px; border-bottom: 1px solid #2b3139; white-space: nowrap; }
+    th { background: #1e2329; color: #848e9c; }
+    td:first-child, th:first-child { text-align: center; }
+    .green { color: #0ecb81; }
+    .red { color: #f6465d; }
+    .yellow { color: #f0b90b; }
+    .info { background: #181a20; border-left: 4px solid #f6465d; padding: 12px; margin-top: 15px; font-size: 13px; line-height: 1.5; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h2>⚡ DCA Engine</h2>
+    <div class="inputs">
+      <div>
+        <label>Direction</label>
+        <select id="side">
+          <option value="LONG">LONG</option>
+          <option value="SHORT">SHORT</option>
+        </select>
+      </div>
+      <div>
+        <label>Entry Price ($)</label>
+        <input type="number" id="entry" value="150" step="any">
+      </div>
+      <div>
+        <label>Leverage (x)</label>
+        <input type="number" id="lev" value="40">
+      </div>
+      <div>
+        <label>First Margin ($)</label>
+        <input type="number" id="m1" value="6" step="any">
+      </div>
+      <div>
+        <label>Multiplier (x)</label>
+        <input type="number" id="mult" value="1.5" step="any">
+      </div>
+      <div>
+        <label>DCA Trigger Drop (%)</label>
+        <input type="number" id="roiDrop" value="48" step="any">
+      </div>
+      <div class="full-width">
+        <label>Total Orders</label>
+        <input type="number" id="orders" value="6">
+      </div>
+      <button type="button" onclick="runCalc()">Calculate Now</button>
+    </div>
+
+    <div class="cards" id="cards"></div>
+
+    <div class="table-box">
+      <table>
+        <thead>
+          <tr>
+            <th>Order</th>
+            <th>Trigger ($)</th>
+            <th>Margin ($)</th>
+            <th>Total Margin ($)</th>
+            <th>Avg Entry ($)</th>
+            <th>100% Profit ($)</th>
+            <th>Est. Liq ($)</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="info" id="note"></div>
+  </div>
+
+  <script>
+    function f(n) {
+      if (n >= 1000) return n.toFixed(2);
+      if (n >= 1) return n.toFixed(4);
+      return n.toFixed(6);
+    }
+
+    function runCalc() {
+      var side = document.getElementById("side").value;
+      var entry = parseFloat(document.getElementById("entry").value);
+      var lev = parseFloat(document.getElementById("lev").value);
+      var m1 = parseFloat(document.getElementById("m1").value);
+      var mult = parseFloat(document.getElementById("mult").value);
+      var roiDrop = parseFloat(document.getElementById("roiDrop").value);
+      var orders = parseInt(document.getElementById("orders").value);
+
+      if (!entry || !lev || !m1 || !mult || !orders || orders < 1) return;
+
+      var step = (roiDrop / 100) / lev;
+      var tp100 = 1.0 / lev;
+      var liq = 0.8 / lev;
+      var totM = 0, totPos = 0, totCoins = 0, avg = entry, finalLiq = 0;
+      var rows = "";
+
+      for (var i = 1; i <= orders; i++) {
+        var trig = (i === 1) ? entry : (side === "LONG" ? avg * (1 - step) : avg * (1 + step));
+        var om = m1 * Math.pow(mult, i - 1);
+        var opos = om * lev;
+        var ocoins = opos / trig;
+
+        totM += om;
+        totPos += opos;
+        totCoins += ocoins;
+        avg = totPos / totCoins;
+
+        var p100 = (side === "LONG") ? avg * (1 + tp100) : avg * (1 - tp100);
+        var eliq = (side === "LONG") ? avg * (1 - liq) : avg * (1 + liq);
+        finalLiq = eliq;
+
+        rows += "<tr>" +
+          "<td><b>#" + i + "</b></td>" +
+          "<td>$" + f(trig) + "</td>" +
+          "<td>$" + om.toFixed(2) + "</td>" +
+          "<td>$" + totM.toFixed(2) + "</td>" +
+          "<td class='yellow'><b>$" + f(avg) + "</b></td>" +
+          "<td class='green'>$" + f(p100) + "</td>" +
+          "<td class='red'>$" + f(eliq) + "</td>" +
+        "</tr>";
+      }
+
+      var slPct = 0.50 / lev;
+      var hardSL = (side === "LONG") ? avg * (1 - slPct) : avg * (1 + slPct);
+      var lossAmt = totM * 0.50;
+
+      var cardsHTML = "<div class='card'><small>Total Capital Needed</small><b class='yellow'>$" + totM.toFixed(2) + "</b></div>" +
+        "<div class='card'><small>Hard Stop Loss (-50% ROI)</small><b class='red'>$" + f(hardSL) + "</b></div>" +
+        "<div class='card'><small>Max Loss at Hard SL</small><b class='red'>-$" + lossAmt.toFixed(2) + "</b></div>" +
+        "<div class='card'><small>Safe Capital Saved</small><b class='green'>$" + (totM - lossAmt).toFixed(2) + "</b></div>";
+
+      var noteHTML = "<b>Hard Stop Loss Details:</b> Order #" + orders + " ke baad aapka Final Avg Entry <b>$" + f(avg) + "</b> hai aur Liquidation <b>$" + f(finalLiq) + "</b> par hai. Liquidation se bachne ke liye <b>$" + f(hardSL) + "</b> par Hard SL lagayein, jisme max <b>$" + lossAmt.toFixed(2) + "</b> ka loss hoga aur baaki 50% fund bach jayega.";
+
+      document.getElementById("tbody").innerHTML = rows;
+      document.getElementById("cards").innerHTML = cardsHTML;
+      document.getElementById("note").innerHTML = noteHTML;
+
+      var savedData = {
+        side: side, entry: entry, lev: lev, m1: m1, mult: mult,
+        roiDrop: roiDrop, orders: orders, rows: rows, cardsHTML: cardsHTML, noteHTML: noteHTML
+      };
+      localStorage.setItem("dca_engine_data", JSON.stringify(savedData));
+    }
+
+    window.onload = function() {
+      var saved = localStorage.getItem("dca_engine_data");
+      if (saved) {
+        var data = JSON.parse(saved);
+        document.getElementById("side").value = data.side;
+        document.getElementById("entry").value = data.entry;
+        document.getElementById("lev").value = data.lev;
+        document.getElementById("m1").value = data.m1;
+        document.getElementById("mult").value = data.mult;
+        document.getElementById("roiDrop").value = data.roiDrop;
+        document.getElementById("orders").value = data.orders;
+        document.getElementById("tbody").innerHTML = data.rows;
+        document.getElementById("cards").innerHTML = data.cardsHTML;
+        document.getElementById("note").innerHTML = data.noteHTML;
+      } else {
+        runCalc();
+      }
+    };
+  </script>
+</body>
+</html>
